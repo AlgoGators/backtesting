@@ -1,2 +1,2 @@
 # backtesting
-Using QC Lean Engine to run backtests
+Using vectorbt to run backtests
