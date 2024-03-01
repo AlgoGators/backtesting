@@ -138,6 +138,11 @@ for symbol, portfolio in portfolios.items():
     print(f"Stats for {symbol}:")
     print(portfolio.stats(), "\n")
 
+"""
+# TO-DO: Figure out how to combine individual portfolios into a single 
+            portfolio and plot the combined portfolio's total value.
+
+
 # Process each symbol independently and store portfolios in a dict
 capital = 10000  # Your desired capital
 portfolios = {symbol: process_symbol(price_data, symbol, positions_data, capital) for symbol in SYMBOLS}
@@ -151,7 +156,4 @@ print(combined_portfolio.stats())
 
 # Plot the combined portfolio's total value
 combined_portfolio.total_value().vbt.plot().show()
-
-"""
-Figure out how to combine individual portfolios into a single portfolio and plot the combined portfolio's total value.
 """
