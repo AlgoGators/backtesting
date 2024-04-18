@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, Any
 from plotly.io import to_image
 from data_engine.manager import Manager, HistoricalManager
+import math
 
 # Define your symbols and file paths at the beginning for easy reference
 SYMBOLS = ['ES', 'NQ', 'ZN']
@@ -122,7 +123,7 @@ def process_symbol(df: pd.DataFrame, symbol: str, positions_df: pd.DataFrame, ca
     return portfolio, combined_df #return combined_df to scrape for data in jumbo_portfolio
 
 #takes daily returns as a percent and compounds it
-def find_portfolio_pnl(portfolio: vbt.Portfolio, initial_capital):
+def find_portfolio_pnl(portfolio: vbt.Portfolio, initial_capital = 10000):
     return(1 + portfolio.daily_returns()).cumprod() * initial_capital - initial_capital
     #To get portfolio value do find_portfolio_pnl(parameters) + initial capital
 
@@ -142,20 +143,30 @@ def get_carry_table(SYMBOLS, start_date = '2023-8-4', end_date = '2024-2-7'):
         filtered_df = df[(df['Datetime'] >= start_date) & (df['Datetime'] <= end_date)]
         print(f'Trend Table for {symbol}')
         print(filtered_df)
-def plot_plt(jumbo_portfolio, initial_capital = 10000):
+def plot_plt(jumbo_portfolio, price_data, initial_capital = 10000):
     i = True
     # Here is another method of basic plotting that has worked well and doesn't require writing to an html file
     plt.figure(figsize=(14, 10))
-
     for symbol, portfolio in jumbo_portfolio.items():
-        plt.plot(find_portfolio_pnl(portfolio[0], initial_capital), label=f'{symbol} Cumulative Money Value')
+        #returns of strategy for specific instrument
+        pnl_data = find_portfolio_pnl(portfolio[0], initial_capital)
+        #plt.plot(pnl_data[pnl_data != 0], label=f'{symbol} Cumulative Money Value')
+
+        #returns of if we were to just buy and hold instead of doing the strategy
+        start_date = pnl_data[pnl_data != 0].index[0]
+        initial_price = price_data[f'{symbol}_Close'].loc[start_date]
+        number_held = math.floor(initial_capital/initial_price)
+        buy_and_hold_returns = (price_data[f'{symbol}_Close'].loc[start_date:] * number_held) - (price_data[f'{symbol}_Close'].loc[start_date] * number_held)
+        #plt.plot(buy_and_hold_returns.index, buy_and_hold_returns, label=f'{symbol} Benchmark', linestyle='--')
         if i is True:
-            jumbo_portfolio_value = find_portfolio_pnl(portfolio[0], initial_capital)
+            jumbo_portfolio_value = pnl_data[pnl_data != 0]
+            jumbo_portfolio_buy_and_hold = buy_and_hold_returns
             i = False
         else:
-            jumbo_portfolio_value += find_portfolio_pnl(portfolio[0], initial_capital)
-
+            jumbo_portfolio_value += pnl_data[pnl_data != 0]
+            jumbo_portfolio_buy_and_hold += buy_and_hold_returns
     plt.plot(jumbo_portfolio_value, label='Combined Cumulative Money Value', linestyle='--')
+    plt.plot(jumbo_portfolio_buy_and_hold, label = 'Jumbo Portfolio Benchmark', linestyle='--')
 
     plt.title('Cumulative Returns in Money Value')
     plt.xlabel('Date')
@@ -204,7 +215,7 @@ engine = create_engine(config_data)
 
 # Load and prepare price data
 price_data = combine_contract_prices(engine)
-#price_data['Combined_Close'] = price_data.sum(axis=1)
+price_data['Combined_Close'] = price_data.sum(axis=1)
 print(price_data.head(100))
 
 # Load positions data
@@ -217,7 +228,7 @@ plot_vbt(jumbo_portfolio)
 print_stats(jumbo_portfolio)
 SYMBOLS = ['ES', 'ZN']
 get_trend_table(SYMBOLS)
-plot_plt(jumbo_portfolio)
+plot_plt(jumbo_portfolio, price_data)
 #get_carry_table(SYMBOLS) still getting worked out
 
 '''
