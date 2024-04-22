@@ -229,7 +229,17 @@ print_stats(jumbo_portfolio)
 SYMBOLS = ['ES', 'ZN']
 get_trend_table(SYMBOLS)
 plot_plt(jumbo_portfolio, price_data)
+
 #get_carry_table(SYMBOLS) still getting worked out
+while True:
+    x = input("What do you want to do:")
+    if x == '0':
+        break
+    try:
+        result = eval(x)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 
 '''
 #This is a failed attempt at combining portfolios in VBT
