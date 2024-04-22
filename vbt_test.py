@@ -143,30 +143,37 @@ def get_carry_table(SYMBOLS, start_date = '2023-8-4', end_date = '2024-2-7'):
         filtered_df = df[(df['Datetime'] >= start_date) & (df['Datetime'] <= end_date)]
         print(f'Trend Table for {symbol}')
         print(filtered_df)
-def plot_plt(jumbo_portfolio, price_data, initial_capital = 10000):
+def plot_plt(jumbo_portfolio, price_data=None, initial_capital = 10000):
     i = True
     # Here is another method of basic plotting that has worked well and doesn't require writing to an html file
     plt.figure(figsize=(14, 10))
     for symbol, portfolio in jumbo_portfolio.items():
         #returns of strategy for specific instrument
         pnl_data = find_portfolio_pnl(portfolio[0], initial_capital)
-        #plt.plot(pnl_data[pnl_data != 0], label=f'{symbol} Cumulative Money Value')
+        plt.plot(pnl_data[pnl_data != 0], label=f'{symbol} Cumulative Money Value')
 
         #returns of if we were to just buy and hold instead of doing the strategy
-        start_date = pnl_data[pnl_data != 0].index[0]
-        initial_price = price_data[f'{symbol}_Close'].loc[start_date]
-        number_held = math.floor(initial_capital/initial_price)
-        buy_and_hold_returns = (price_data[f'{symbol}_Close'].loc[start_date:] * number_held) - (price_data[f'{symbol}_Close'].loc[start_date] * number_held)
-        #plt.plot(buy_and_hold_returns.index, buy_and_hold_returns, label=f'{symbol} Benchmark', linestyle='--')
+        try:
+            start_date = pnl_data[pnl_data != 0].index[0]
+            initial_price = price_data[f'{symbol}_Close'].loc[start_date]
+            number_held = math.floor(initial_capital/initial_price)
+            buy_and_hold_returns = (price_data[f'{symbol}_Close'].loc[start_date:] * number_held) - (price_data[f'{symbol}_Close'].loc[start_date] * number_held)
+            plt.plot(buy_and_hold_returns.index, buy_and_hold_returns, label=f'{symbol} Benchmark', linestyle='--')
+            if i is True:
+                jumbo_portfolio_buy_and_hold = buy_and_hold_returns
+                i = False
+            else:
+                jumbo_portfolio_buy_and_hold += buy_and_hold_returns
+        except Exception as e:
+            pass
         if i is True:
             jumbo_portfolio_value = pnl_data[pnl_data != 0]
-            jumbo_portfolio_buy_and_hold = buy_and_hold_returns
             i = False
         else:
             jumbo_portfolio_value += pnl_data[pnl_data != 0]
-            jumbo_portfolio_buy_and_hold += buy_and_hold_returns
     plt.plot(jumbo_portfolio_value, label='Combined Cumulative Money Value', linestyle='--')
-    plt.plot(jumbo_portfolio_buy_and_hold, label = 'Jumbo Portfolio Benchmark', linestyle='--')
+    if price_data != None:
+        plt.plot(jumbo_portfolio_buy_and_hold, label = 'Jumbo Portfolio Benchmark', linestyle='--')
 
     plt.title('Cumulative Returns in Money Value')
     plt.xlabel('Date')
@@ -205,32 +212,29 @@ def print_stats(jumbo_portfolio):
         print(f"Stats for {symbol}:")
         print(portfolio[0].stats())
 
-
+print('na')
 #set initial capital
 capital = 10000
-
+print('ja')
 # Load configuration and create database engine
 config_data = load_config(CONFIG_FILE_PATH)
 engine = create_engine(config_data)
-
+print('ha')
 # Load and prepare price data
 price_data = combine_contract_prices(engine)
 price_data['Combined_Close'] = price_data.sum(axis=1)
-print(price_data.head(100))
-
+print('la')
 # Load positions data
 positions_data = load_and_prepare_positions(POSITIONS_FILE_PATH)
 
 #holds Symbol as key, and portfolio, combined_df as definition; Might make a class to hold any information/commands instead
 jumbo_portfolio = {symbol: process_symbol(price_data, symbol, positions_data, capital) for symbol in SYMBOLS}
-
-plot_vbt(jumbo_portfolio)
-print_stats(jumbo_portfolio)
 SYMBOLS = ['ES', 'ZN']
-get_trend_table(SYMBOLS)
-plot_plt(jumbo_portfolio, price_data)
+
 
 #get_carry_table(SYMBOLS) still getting worked out
+
+#Call the functions
 while True:
     x = input("What do you want to do:")
     if x == '0':
@@ -239,7 +243,14 @@ while True:
         result = eval(x)
     except Exception as e:
         print(f"An error occurred: {e}")
+"""
+Here's some functions to call
 
+#plot_plt(jumbo_portfolio, price_data = None, initial_capital=10000)
+#plot_vbt(jumbo_portfolio, initial_capital=10000)
+#print_stats(jumbo_portfolio)
+#get_trend_table(SYMBOLS)
+"""
 
 '''
 #This is a failed attempt at combining portfolios in VBT
