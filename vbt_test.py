@@ -1,3 +1,4 @@
+import pandas
 import pandas as pd
 import sqlalchemy
 import vectorbt as vbt
@@ -8,6 +9,8 @@ from typing import Dict, Any
 from plotly.io import to_image
 from data_engine.manager import Manager, HistoricalManager
 import math
+import indicators as ind
+import quantstats as qs
 
 # Define your symbols and file paths at the beginning for easy reference
 SYMBOLS = ['ES', 'NQ', 'ZN']
@@ -76,7 +79,7 @@ def load_and_prepare_positions(file_path: str) -> pd.DataFrame:
     return positions_df.round()
 
 
-def process_symbol(df: pd.DataFrame, symbol: str, positions_df: pd.DataFrame, capital: float = 10000.0) -> vbt.Portfolio:
+def process_symbol(df: pd.DataFrame, symbol: str, positions_df: pd.DataFrame, capital: float = 10000.0) -> (vbt.Portfolio, pandas.DataFrame):
     # Prepare the symbol's price data
     symbol_df = df[[f'{symbol}_Close']].dropna().loc[~df.index.duplicated(keep='first')]
 
@@ -127,13 +130,13 @@ def find_portfolio_pnl(portfolio: vbt.Portfolio, initial_capital = 10000):
     return(1 + portfolio.daily_returns()).cumprod() * initial_capital - initial_capital
     #To get portfolio value do find_portfolio_pnl(parameters) + initial capital
 
-def get_trend_table(SYMBOLS, start_date = '2023-8-4', end_date = '2024-2-7'):
-
+def get_trend_table(SYMBOL, start_date = '2023-8-4', end_date = '2024-2-7'):
     manage = Manager()
-    for symbol in SYMBOLS:
-        df = manage.get_trend_table(f'{symbol}')
-        filtered_df = df[(df['Datetime'] >= start_date) & (df['Datetime'] <= end_date)]
-        print(filtered_df)
+
+    df = manage.get_trend_table(f'{SYMBOL}')
+    filtered_df = df[(df['Datetime'] >= start_date) & (df['Datetime'] <= end_date)]
+    return filtered_df
+    #filtered_df.to_csv(f'{symbol}_trend_table.csv')
 
 def get_carry_table(SYMBOLS, start_date = '2023-8-4', end_date = '2024-2-7'):
 
@@ -145,6 +148,7 @@ def get_carry_table(SYMBOLS, start_date = '2023-8-4', end_date = '2024-2-7'):
         print(filtered_df)
 def plot_plt(jumbo_portfolio, price_data=None, initial_capital = 10000):
     i = True
+    j = True
     # Here is another method of basic plotting that has worked well and doesn't require writing to an html file
     plt.figure(figsize=(14, 10))
     for symbol, portfolio in jumbo_portfolio.items():
@@ -159,9 +163,10 @@ def plot_plt(jumbo_portfolio, price_data=None, initial_capital = 10000):
             number_held = math.floor(initial_capital/initial_price)
             buy_and_hold_returns = (price_data[f'{symbol}_Close'].loc[start_date:] * number_held) - (price_data[f'{symbol}_Close'].loc[start_date] * number_held)
             plt.plot(buy_and_hold_returns.index, buy_and_hold_returns, label=f'{symbol} Benchmark', linestyle='--')
-            if i is True:
+
+            if j is True:
                 jumbo_portfolio_buy_and_hold = buy_and_hold_returns
-                i = False
+                j = False
             else:
                 jumbo_portfolio_buy_and_hold += buy_and_hold_returns
         except Exception as e:
@@ -207,30 +212,55 @@ def plot_vbt(jumbo_portfolio, initial_capital = 10000):
     # Save the plot to HTML
     fig.write_html('vbt_plot_returns.html')
 
+
 def print_stats(jumbo_portfolio):
     for symbol, portfolio in jumbo_portfolio.items():
         print(f"Stats for {symbol}:")
         print(portfolio[0].stats())
 
-print('na')
 #set initial capital
 capital = 10000
-print('ja')
+
 # Load configuration and create database engine
 config_data = load_config(CONFIG_FILE_PATH)
 engine = create_engine(config_data)
-print('ha')
+
 # Load and prepare price data
 price_data = combine_contract_prices(engine)
 price_data['Combined_Close'] = price_data.sum(axis=1)
-print('la')
+
 # Load positions data
 positions_data = load_and_prepare_positions(POSITIONS_FILE_PATH)
-
 #holds Symbol as key, and portfolio, combined_df as definition; Might make a class to hold any information/commands instead
 jumbo_portfolio = {symbol: process_symbol(price_data, symbol, positions_data, capital) for symbol in SYMBOLS}
 SYMBOLS = ['ES', 'ZN']
 
+#port = process_symbol(price_data, 'ES', positions_data)[0]
+#port.orders.records_readable.to_csv("portfolio_orders.csv", index=False)
+
+
+def create_price_pnl_dataframe(price_data, jumbo_portfolio, initial_capital=10000):
+    combined_data = {}
+
+    # Loop through each portfolio in the jumbo_portfolio dictionary
+    for symbol, portfolios in jumbo_portfolio.items():
+        portfolio = portfolios[0]  # Assuming the first item is the portfolio object
+
+        # Check if the price data for this symbol exists in the price_data DataFrame
+        price_column = f"{symbol}_Close"
+        if price_column in price_data.columns:
+            # Get the price series for this symbol
+            prices = price_data[price_column]
+            # Calculate PnL for this symbol using the portfolio object
+            pnl = find_portfolio_pnl(portfolio, initial_capital)
+            # Add both the prices and PnL to the dictionary
+            combined_data[f'{symbol}_Close'] = prices
+            combined_data[f'{symbol}_PnL'] = pnl
+
+    # Create a new DataFrame from the combined data
+    result_df = pd.DataFrame(combined_data, index=price_data.index)
+
+    return result_df
 
 #get_carry_table(SYMBOLS) still getting worked out
 
@@ -360,3 +390,56 @@ print(combined_portfolio.stats())
 # Plot the combined portfolio's total value
 combined_portfolio.total_value().vbt.plot().show()
 """
+
+"Chris Bowers"
+def simulate_volatility(data, scale_factor):
+    return data * scale_factor
+
+def simulate_drawdown(data, drawdown_factor):
+    return data.apply(lambda x: x if x > 0 else x * drawdown_factor)
+
+
+def adjust_positions_based_on_volatility(data, positions, max_volatility):
+    # Calculate daily volatility
+    daily_volatility = data.pct_change().std()
+
+    # Scale down positions if volatility exceeds the threshold
+    if daily_volatility > max_volatility:
+        scaling_factor = max_volatility / daily_volatility
+        adjusted_positions = positions * scaling_factor
+    else:
+        adjusted_positions = positions
+
+    return adjusted_positions
+
+def main():
+    # Load and process data
+    # Set a maximum volatility threshold
+    max_volatility = 0.02  # Example threshold (2% daily volatility)
+
+    # Simulate scenarios
+    simulated_volatility_data = simulate_volatility(price_data, 1.5)
+
+    # Assume positions data is a DataFrame initialized to 1 (indicating fully invested)
+    positions_data = pd.DataFrame(np.ones(simulated_volatility_data.shape), index=simulated_volatility_data.index, columns=simulated_volatility_data.columns)
+
+    # Adjust positions based on volatility
+    adjusted_positions = adjust_positions_based_on_volatility(simulated_volatility_data, positions_data, max_volatility)
+
+    # Build the portfolio with adjusted positions
+    portfolio = vbt.Portfolio.from_signals(simulated_volatility_data, entries=adjusted_positions, exits=positions_data.shift(-1))
+    print(portfolio.stats())
+
+    engine = create_engine(load_config(CONFIG_FILE_PATH))
+    price_data = fetch_data(engine, DATABASE_TABLE_NAME, SYMBOLS)
+
+    # Simulate scenarios
+    simulated_volatility_data = simulate_volatility(price_data, 1.5)  # Increase volatility by 50%
+    simulated_drawdown_data = simulate_drawdown(simulated_volatility_data, 0.5)  # Simulate 50% deeper drawdowns
+
+    # Build the portfolio
+    portfolio = vbt.Portfolio.from_returns(simulated_drawdown_data)
+    print(portfolio.stats())
+
+#if __name__ == "__main__":
+    #main()
