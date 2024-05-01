@@ -1,7 +1,7 @@
 import pandas as pd
 import vectorbt as vbt
 import matplotlib.pyplot as plt
-def compute_ma(data_path, prices, short_ma_period=16, long_ma_period=64, plot=False):
+def compute_ma(prices, short_ma_period=16, long_ma_period=64, plot=False) -> vbt.MA:
     """
     Compute and optionally plot the short and long EMAs for a given dataset.
 
@@ -32,7 +32,7 @@ def compute_ma(data_path, prices, short_ma_period=16, long_ma_period=64, plot=Fa
 
     return short_ma, long_ma
 
-def compute_bbands(data_path, prices, window=20, std_dev=2, plot=False):
+def compute_bbands(prices, window=20, std_dev=2, plot=False) -> vbt.BBANDS:
 
     bbands = vbt.BBANDS.run(prices, window=window, alpha=std_dev)
 
@@ -47,7 +47,7 @@ def compute_bbands(data_path, prices, window=20, std_dev=2, plot=False):
 
     return bbands
 
-def compute_rsi(data_path, prices, window=14, plot=False):
+def compute_rsi(prices, window=14, plot=False) -> vbt.RSI:
     rsi = vbt.RSI.run(prices, window=window)
 
     if plot:
@@ -63,3 +63,17 @@ def compute_rsi(data_path, prices, window=14, plot=False):
         plt.show()
 
     return rsi
+
+def compute_ATR(high, low, close, window=20, plot=False) -> vbt.ATR:
+    atr = vbt.ATR.run(high=high,low=low,close=close, window=window)
+
+    if plot:
+        plt.figure(figsize=(14, 7))
+        plt.plot(atr.tr, label=f'TR', color='blue', alpha=0.5)
+        plt.plot(atr.atr, label=f'{window}-day ATR', color='orange')
+
+        plt.title('ATR and TR')
+        plt.legend()
+        plt.show()
+
+    return atr
